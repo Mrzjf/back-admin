@@ -31,12 +31,12 @@
           <el-form-item prop="code">
             <label>验证码</label>
             <div class="flex">
-              <el-input v-model.number="ruleForm.code" style="margin-right:20px"></el-input>
-              <el-button @click="GetSms1()" type="success" :disabled="isBtn">获取验证码</el-button>
+              <el-input v-model.number="ruleForm.code" style="margin-right:20px" type="text"></el-input>
+              <el-button @click="GetSms1()" type="success" :disabled="isBtnActive">获取验证码</el-button>
             </div>
           </el-form-item>
           <el-form-item>
-            <el-button @click="submitForm('ruleForm')" class="LoginBtn" type="primary">登录</el-button>
+            <el-button @click="submitForm('ruleForm')" class="LoginBtn" type="primary" :disabled="!isBtnActive">登录</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -66,11 +66,11 @@
             <label>验证码</label>
             <div class="flex">
               <el-input v-model.number="ruleForm.code" style="margin-right:20px"></el-input>
-              <el-button type="success" :disabled="isBtn">获取验证码</el-button>
+              <el-button type="success" :disabled="isBtnActive">获取验证码</el-button>
             </div>
           </el-form-item>
           <el-form-item>
-            <el-button @click="submitForm('ruleForm')" class="LoginBtn" type="success">注册</el-button>
+            <el-button @click="submitForm('ruleForm')" class="LoginBtn" type="success" :disabled="!isBtnActive">注册</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -80,7 +80,7 @@
 
 <script>
 import { GetSms } from "../../api/login.js"
-import { reactive, ref, onMounted } from "@vue/composition-api";
+import { reactive, ref, onMounted, computed } from "@vue/composition-api";
 import { filter } from "../../common/testInput.js";
 
 export default {
@@ -90,13 +90,7 @@ export default {
       if (!value) {
         return callback(new Error("验证码不能为空"));
       }
-      setTimeout(() => {
-        if (!Number.isInteger(value)) {
-          callback(new Error("请输入验证码"));
-        } else {
-          callback();
-        }
-      }, 1000);
+      callback()
     };
     var validateEmail = (rule, value, callback) => {
       let reg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/;
@@ -133,7 +127,7 @@ export default {
       pass: [{ validator: validatePass, trigger: "blur" }],
       code: [{ validator: checkCode, trigger: "blur" }]
     });
-    const isBtn = ref(false); //禁用按钮关闭
+    const isBtnActive = ref(false)
 
     //方法
     const submitForm = formName => {
@@ -149,24 +143,30 @@ export default {
     };
 
     const GetSms1 = ()=>{
+
       let json = {
         username:ruleForm.email
       }
       GetSms(json).then(res => {
-        console.log(res.data.message)
-        alert("登录验证码发送成功")
+        if(!res.data.resCode) {
+          alert("登录验证码发送成功")
+          isBtnActive.value = true
+        }else {
+          alert("error")
+        }
+        
       })
     }
 
     const tabRest = (index)=> {
       current.value = index;
-      isBtn.value = false;
+      isBtnActive.value = false
     }
 
     //生命周期
     onMounted(function() {});
 
-    return { menuTab, current, ruleForm, rules, isBtn, submitForm, tabRest, GetSms1 };
+    return { menuTab, current, ruleForm, rules, submitForm, tabRest, GetSms1, isBtnActive };
   }
 };
 </script>
@@ -181,7 +181,6 @@ export default {
   margin: auto;
 }
 .menu-tab {
-  padding-top: 100%;
   text-align: center;
   li {
     display: inline-block;
