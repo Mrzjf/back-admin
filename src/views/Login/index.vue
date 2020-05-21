@@ -7,11 +7,11 @@
           v-for="(item,index) in menuTab"
           :key="index"
           :class="{'current':current == index}"
-          @click="current = index"
+          @click="tabRest(index)"
         >{{ item.text }}</li>
       </ul>
       <!-- 登录 -->
-      <div class="login-from" style="margin-top:20px" v-if="current == 0">
+      <div class="login-from" style="margin-top:20px" v-if="!current">
         <el-form
           :model="ruleForm"
           status-icon
@@ -26,13 +26,13 @@
           </el-form-item>
           <el-form-item prop="pass">
             <label>密码</label>
-            <el-input type="password" v-model="ruleForm.pass" autocomplete="off"></el-input>
+            <el-input type="password" v-model="ruleForm.pass" autocomplete="off" maxlength="18"></el-input>
           </el-form-item>
           <el-form-item prop="code">
             <label>验证码</label>
             <div class="flex">
               <el-input v-model.number="ruleForm.code" style="margin-right:20px"></el-input>
-              <el-button @click="resetForm('ruleForm')" type="success" :disabled="isBtn">获取验证码</el-button>
+              <el-button @click="GetSms1()" type="success" :disabled="isBtn">获取验证码</el-button>
             </div>
           </el-form-item>
           <el-form-item>
@@ -41,16 +41,52 @@
         </el-form>
       </div>
       <!-- 注册 -->
-      <div class="register-from" v-else></div>
+      <div class="register-from" v-else>
+        <el-form
+          :model="ruleForm"
+          status-icon
+          :rules="rules"
+          ref="ruleForm"
+          class="demo-ruleForm"
+          size="medium"
+        >
+          <el-form-item prop="email">
+            <label>邮箱</label>
+            <el-input type="text" v-model="ruleForm.email" autocomplete="off"></el-input>
+          </el-form-item>
+          <el-form-item prop="pass">
+            <label>密码</label>
+            <el-input type="password" v-model="ruleForm.pass" autocomplete="off" maxlength="18"></el-input>
+          </el-form-item>
+          <el-form-item prop="pass2">
+            <label>再次输入密码</label>
+            <el-input type="password" v-model="ruleForm.pass2" autocomplete="off" maxlength="18"></el-input>
+          </el-form-item>
+          <el-form-item prop="code">
+            <label>验证码</label>
+            <div class="flex">
+              <el-input v-model.number="ruleForm.code" style="margin-right:20px"></el-input>
+              <el-button type="success" :disabled="isBtn">获取验证码</el-button>
+            </div>
+          </el-form-item>
+          <el-form-item>
+            <el-button @click="submitForm('ruleForm')" class="LoginBtn" type="success">注册</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import { GetSms } from "../../api/login.js"
+import { reactive, ref, onMounted } from "@vue/composition-api";
+import { filter } from "../../common/testInput.js";
+
 export default {
-  name: "Login",
-  data() {
-    var checkAge = (rule, value, callback) => {
+  setup(props, context) {
+    //验证
+    var checkCode = (rule, value, callback) => {
       if (!value) {
         return callback(new Error("验证码不能为空"));
       }
@@ -58,46 +94,50 @@ export default {
         if (!Number.isInteger(value)) {
           callback(new Error("请输入验证码"));
         } else {
-            callback();
+          callback();
         }
       }, 1000);
     };
-    var validatePass = (rule, value, callback) => {
+    var validateEmail = (rule, value, callback) => {
+      let reg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/;
       if (value === "") {
         callback(new Error("请输入邮箱"));
+      } else if (!reg.test(value)) {
+        callback(new Error("输入邮箱格式有误"));
       } else {
-        if (this.ruleForm.pass !== "") {
-          this.$refs.ruleForm.validateField("pass");
+        if (ruleForm.pass !== "") {
+          context.refs.ruleForm.validateField("pass");
         }
         callback();
       }
     };
-    var validatePass2 = (rule, value, callback) => {
+    var validatePass = (rule, value, callback) => {
       if (value === "") {
         callback(new Error("请输入密码"));
       } else {
         callback();
       }
     };
-    return {
-      menuTab: [{ text: "登录" }, { text: "注册" }],
-      current: 0,
-      ruleForm: {
-        email: "",
-        pass: "",
-        code: ""
-      },
-      rules: {
-        email: [{ validator: validatePass, trigger: "blur" }],
-        pass: [{ validator: validatePass2, trigger: "blur" }],
-        code: [{ validator: checkAge, trigger: "blur" }]
-      },
-      isBtn:false,//禁用按钮关闭
-    };
-  },
-  methods: {
-    submitForm(formName) {
-      this.$refs[formName].validate(valid => {
+
+    //数据
+    const menuTab = reactive([{ text: "登录" }, { text: "注册" }]);
+    const current = ref(0);
+    const ruleForm = reactive({
+      email: "",
+      pass: "",
+      pass2:"",
+      code: ""
+    });
+    const rules = reactive({
+      email: [{ validator: validateEmail, trigger: "blur" }],
+      pass: [{ validator: validatePass, trigger: "blur" }],
+      code: [{ validator: checkCode, trigger: "blur" }]
+    });
+    const isBtn = ref(false); //禁用按钮关闭
+
+    //方法
+    const submitForm = formName => {
+      context.refs[formName].validate(valid => {
         if (valid) {
           alert("输入正确");
           //实现登录验证请求
@@ -106,12 +146,27 @@ export default {
           return false;
         }
       });
-    },
-    resetForm(formName) {
-      if(!this.isBtn) {
-        this.isBtn = !this.isBtn
+    };
+
+    const GetSms1 = ()=>{
+      let json = {
+        username:ruleForm.email
       }
+      GetSms(json).then(res => {
+        console.log(res.data.message)
+        alert("登录验证码发送成功")
+      })
     }
+
+    const tabRest = (index)=> {
+      current.value = index;
+      isBtn.value = false;
+    }
+
+    //生命周期
+    onMounted(function() {});
+
+    return { menuTab, current, ruleForm, rules, isBtn, submitForm, tabRest, GetSms1 };
   }
 };
 </script>
@@ -144,6 +199,15 @@ export default {
 }
 
 .login-from {
+  label {
+    color: #fff;
+  }
+  .LoginBtn {
+    width: 100%;
+  }
+}
+
+.register-from {
   label {
     color: #fff;
   }
